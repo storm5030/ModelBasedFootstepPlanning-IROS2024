@@ -89,3 +89,6 @@ models/
 # LIPM source packages (not generated analysis/model artifacts)
 !/LIPM/models/
 !/LIPM/analysis/
+
+# Generated simulation results (NPZ, CSV, figures, videos)
+/outputs/

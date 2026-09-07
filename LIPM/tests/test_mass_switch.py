@@ -48,7 +48,7 @@ class MassSwitchTests(unittest.TestCase):
     def test_terminal_capture_constraint(self):
         m=create_model()
         theta=0.; side=-1
-        K=m._double_support_gain(); E=np.exp(m.w_0*m.T_d)
+        K=m._double_support_gain()+m.alpha*np.exp(m.w_0*m.T_ds); E=np.exp(m.w_0*m.T_d)
         expected=np.array([K*m.s_d/(E-1),-side*K*m.w_d/(E+1)])
         simulate(m,m.T_d)
         np.testing.assert_allclose(np.array([m.x_0+m.vx_0/m.w_0,m.y_0+m.vy_0/m.w_0]),expected,atol=1e-11)

@@ -47,7 +47,7 @@ NPZ의 position/velocity는 전체 CoM의 수평 상태다. whole_com/whole_com_
 
 기존 DSP LIPM 높이 0.6 m와 전체 CoM 초기 높이를 맞춘 비교다. 기존 몸통 기준 mass-switch의 --height 0.6과는 의미가 다르다. 기존 모델에 몸통 높이 0.9 m와 동일한 물리 초기 상태를 주면 이 모델과 동역학은 같다.
 
-기반 모델의 목표 DCM 오프셋은 아직 기존 DSP 식이므로 속도·폭 오차가 남는다. 현재 기본 주기 평균 속도는 명령 0.3 m/s에 대해 약 0.24047 m/s다. 초기 높이를 맞춘 것만으로 완전히 같은 동역학 조건이나 물리적 안정성이 보장되지는 않는다.
+목표 DCM 오프셋을 질량 스위칭에 맞게 보정했다. 이전 기본 주기 평균 속도는 약 0.24047 m/s였으나 현재는 명령 0.3 m/s를 맞춘다. 이 보정은 공유하는 기반 모델에서 수행한다. 초기 높이를 맞춘 것만으로 완전히 같은 동역학 조건이나 물리적 안정성이 보장되지는 않는다.
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s LIPM/tests -p test_mass_switch_total_com.py

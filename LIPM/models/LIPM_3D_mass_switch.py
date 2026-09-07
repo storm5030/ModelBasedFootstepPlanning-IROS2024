@@ -132,20 +132,32 @@ class LIPM3DMassSwitch(LIPM3DDoubleSupport):
             self.resetEffectiveState()
         super().switchSupportLeg()
 
+    def calculateDesiredDCMOffset(self, theta=0.):
+        """Next-support offset for commanded step displacement, including reset.
+
+        xi_next = E*xi - C*step, C = K + alpha*exp(omega*T_ds).
+        Forward offsets repeat every step; lateral offsets alternate sign.
+        Recompute at each plan so current mass ratio, height, timing and commands apply.
+        """
+        omega = np.sqrt(9.81/((1-self.alpha)*self.body_height))
+        K = np.expm1(omega*self.T_ds)/(omega*self.T_ds) if self.T_ds else 1.
+        E = np.exp(omega*self.T_d)
+        C = K+self.alpha*np.exp(omega*self.T_ds)
+        next_side = -1 if self.support_leg == 'left_leg' else 1
+        forward = np.array([np.cos(theta),np.sin(theta)])
+        lateral = np.array([-np.sin(theta),np.cos(theta)])
+        self.desired_dcm_offset = C*self.s_d/(E-1)*forward-next_side*C*self.w_d/(E+1)*lateral
+        return self.desired_dcm_offset.copy()
+
     def calculateFootLocationForNextStepXcoMWorld(self, theta=0.):
         # Solve an affine terminal-DCM constraint including the touchdown reset.
-        # This is a capture-style target, not a proof of periodic whole-body speed.
+        # The target offset includes the same reset as the propagation below.
         a = self.alpha
         old = self.support_foot_pos[:2].copy()
         c = self.COM_pos[:2].copy()
         v = np.array([self.vx_t,self.vy_t])
         next_w = np.sqrt(9.81/((1-a)*self.body_height))
-        K = np.expm1(next_w*self.T_ds)/(next_w*self.T_ds) if self.T_ds else 1.
-        E = np.exp(next_w*self.T_d)
-        side = -1 if self.support_leg == 'left_leg' else 1
-        forward = np.array([np.cos(theta),np.sin(theta)])
-        lateral = np.array([-np.sin(theta),np.cos(theta)])
-        offset = K*self.s_d/(E-1)*forward-side*K*self.w_d/(E+1)*lateral
+        offset = self.calculateDesiredDCMOffset(theta)
         end_c,end_v = self.propagate(c,v,old,old,self.T,self.w_0)
         self.eICP_x,self.eICP_y = end_c+end_v/self.w_0
         def residual(target):
@@ -170,5 +182,6 @@ class LIPM3DMassSwitch(LIPM3DDoubleSupport):
                       body_position=self.body_pos.copy(), body_velocity=self.body_velocity.copy(),
                       effective_com=effective, active_foot=self.active_foot,
                       planning_com=self.COM_pos.copy(), planning_height=self.zc,
-                      foot_velocity=self.foot_velocity.copy())
+                      foot_velocity=self.foot_velocity.copy(),
+                      desired_dcm_offset=getattr(self, 'desired_dcm_offset', np.zeros(2)).copy())
         return record
