@@ -277,6 +277,11 @@ def main():
     COM_dvel_x_ani, = cx.plot([], [], 'k--', label='desired Body CoM velocity x')
     COM_vel_y_ani, = cx.plot([], [], color='purple', label='Body CoM velocity y')
     COM_dvel_y_ani, = cx.plot([], [], color='purple', ls='--', label='desired Body CoM velocity y')
+    # Full-run extrema remain visible in static results and during replay.
+    for direction, values, color in [('x', COM_vel_x, 'black'), ('y', COM_vel_y, 'purple')]:
+        for kind, value in [('max', np.max(values)), ('min', np.min(values))]:
+            cx.axhline(value, color=color, linestyle=':', linewidth=1.2, alpha=0.4,
+                       label=f'{direction} {kind}: {value:.3f} m/s', zorder=1)
     dx.set(xlim=(0, t[-1]),
                ylim=(min(step_length.min(), step_width.min(), dstep_length.min(), dstep_width.min())-0.1,
                      max(step_length.max(), step_width.max(), dstep_length.max(), dstep_width.max())+0.1),

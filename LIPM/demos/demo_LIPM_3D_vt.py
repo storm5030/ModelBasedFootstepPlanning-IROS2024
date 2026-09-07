@@ -410,7 +410,12 @@ COM_vel_x_ani, = cx.plot([], [], color='k', label='CoM velocity x')
 COM_dvel_x_ani, = cx.plot([], [], color='k', linestyle='--', label='desired CoM velocity x')
 COM_vel_y_ani, = cx.plot([], [], color='purple', label='CoM velocity y')
 COM_dvel_y_ani, = cx.plot([], [], color='purple', linestyle='--', label='desired CoM velocity y')
-cx.legend(loc='upper right')
+# Full-run extrema remain visible in static results and during replay.
+for direction, values, color in [('x', COM_vel_x, 'black'), ('y', COM_vel_y, 'purple')]:
+    for kind, value in [('max', np.max(values)), ('min', np.min(values))]:
+        cx.axhline(value, color=color, linestyle=':', linewidth=1.2, alpha=0.4,
+                   label=f'{direction} {kind}: {value:.3f} m/s', zorder=1)
+cx.legend(loc='upper right', fontsize=8)
 
 # COM_vel_2D = FuncAnimation(fig=fig, init_func=COM_vel_2D_init, func=COM_vel_2D_update, frames=range(1, data_len), interval=1.0/LIPM_model.dt, blit=False, repeat=True)
 
