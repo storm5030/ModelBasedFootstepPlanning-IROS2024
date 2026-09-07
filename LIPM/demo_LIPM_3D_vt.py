@@ -11,7 +11,7 @@ class Ball:
 
     def update(self, pos):
         # draw ball
-        self.scatter.set_data_3d(pos)
+        self.scatter.set_data_3d([pos[0]], [pos[1]], [pos[2]])
 
 class Line:
     def __init__(self, size=1, color='g'):
@@ -102,17 +102,17 @@ def ani_3D_update(i):
 
 def ani_2D_init():
     COM_traj_ani.set_data(COM_pos_x[0:0], COM_pos_y[0:0])
-    COM_pos_ani.set_data(COM_pos_x[0], COM_pos_y[0])
-    left_foot_pos_ani.set_data(left_foot_pos_x[0], left_foot_pos_y[0])
-    right_foot_pos_ani.set_data(right_foot_pos_x[0], right_foot_pos_y[0])
+    COM_pos_ani.set_data([COM_pos_x[0]], [COM_pos_y[0]])
+    left_foot_pos_ani.set_data([left_foot_pos_x[0]], [left_foot_pos_y[0]])
+    right_foot_pos_ani.set_data([right_foot_pos_x[0]], [right_foot_pos_y[0]])
 
     return [COM_pos_ani, COM_traj_ani, left_foot_pos_ani, right_foot_pos_ani]
 
 def ani_2D_update(i):
     COM_traj_ani.set_data(COM_pos_x[0:i], COM_pos_y[0:i])
-    COM_pos_ani.set_data(COM_pos_x[i], COM_pos_y[i])
-    left_foot_pos_ani.set_data(left_foot_pos_x[i], left_foot_pos_y[i])
-    right_foot_pos_ani.set_data(right_foot_pos_x[i], right_foot_pos_y[i])
+    COM_pos_ani.set_data([COM_pos_x[i]], [COM_pos_y[i]])
+    left_foot_pos_ani.set_data([left_foot_pos_x[i]], [left_foot_pos_y[i]])
+    right_foot_pos_ani.set_data([right_foot_pos_x[i]], [right_foot_pos_y[i]])
 
     ani_text_COM_pos.set_text(COM_pos_str % (COM_pos_x[i], COM_pos_y[i]))
 
@@ -361,6 +361,7 @@ cx.set_xlim(0, total_time/LIPM_model.dt)
 cx.set_ylim(min(min(COM_vel_x), min(COM_vel_y))-0.1, max(max(COM_vel_x), max(COM_vel_y))+0.1)
 cx.set_xlabel('time (s)')
 cx.set_ylabel('CoM velocity (m/s)')
+cx.set_xticks(np.linspace(0, total_time/LIPM_model.dt, 6))
 cx.set_xticklabels(np.linspace(0, total_time, 6))
 cx.grid(ls='--')
 
@@ -378,6 +379,7 @@ dx.set_xlim(0, total_time/LIPM_model.dt)
 dx.set_ylim(min(min(step_length), min(step_width))-0.1, max(max(step_length), max(step_width))+0.1)
 dx.set_xlabel('time (s)')
 dx.set_ylabel('scale')
+dx.set_xticks(np.linspace(0, total_time/LIPM_model.dt, 6))
 dx.set_xticklabels(np.linspace(0, total_time, 6))
 dx.grid(ls='--')
 
@@ -410,10 +412,10 @@ anim = FuncAnimation(fig=fig, init_func=_init_func, func=_update_func, frames=ra
 print("--------- Play the animation")
 plt.show()
 
-print("--------- Save the animation")
-filepath = os.path.join(os.getcwd(), "LIPM_vt.mp4")
-# COM_vel_2D.save(filepath, fps=self.fps, extra_args=['-vcodec', 'libx264'])
-# step_params_2D.save(filepath, fps=self.fps, extra_args=['-vcodec', 'libx264'])
-anim.save(filepath, fps=1.0/LIPM_model.dt, extra_args=['-vcodec', 'libx264'])
+# print("--------- Save the animation")
+# filepath = os.path.join(os.getcwd(), "LIPM_vt.mp4")
+# # COM_vel_2D.save(filepath, fps=self.fps, extra_args=['-vcodec', 'libx264'])
+# # step_params_2D.save(filepath, fps=self.fps, extra_args=['-vcodec', 'libx264'])
+# anim.save(filepath, fps=1.0/LIPM_model.dt, extra_args=['-vcodec', 'libx264'])
 
 print('---------  Program terminated')
