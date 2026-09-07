@@ -86,3 +86,6 @@ models/
 *.png
 *.gif
 *.jpg
+# LIPM source packages (not generated analysis/model artifacts)
+!/LIPM/models/
+!/LIPM/analysis/

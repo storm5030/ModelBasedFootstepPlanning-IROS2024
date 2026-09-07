@@ -1,11 +1,30 @@
 ﻿# Double-support LIPM 데모
 
+## 현재 비교 설정
+
+- 더블 스탠스 데모: SSP 0.48초 + DSP 0.12초, 목표 속도 `[0.3, 0]` m/s.
+- 기존 `demo_LIPM_3D_vt.py`: T=0.6초, 목표 속도 `[0.3, 0]` m/s.
+- 두 데모의 CoM 높이는 0.6 m로 유지한다. 초기 속도 `[1, 0]` m/s와 첫 계획 보폭 0.6 m도 유지했다.
+- 따라서 두 데모 모두 시작할 때 과도응답이 있으며 초기 속도는 목표 속도와 다르다.
+- 발너비 스케줄은 유지된다. 10스텝은 6초, 20스텝은 12초이므로 기본 10초 실행에서는 발너비가 0.8 m로 바뀌는 첫 전환만 나타난다.
+- 아래의 0.34/0.08초 및 1 m/s 설명과 비교 결과는 이전 설정의 기록이다.
+
+## 정적 결과 표시 모드
+
+현재 기본 실행은 실시간 애니메이션 대신 계산이 끝난 최종 결과 4개 패널만 표시한다. 3D와 평면도는 전체 보행 궤적이 보이도록 범위를 설정한다. 애니메이션 클래스와 콜백은 삭제하지 않았으며 다음 옵션으로 다시 재생할 수 있다.
+
+```powershell
+.\.venv\Scripts\python.exe .\LIPM\demos\demo_LIPM_3D_double_support.py --animate
+```
+
+기본 정적 모드에서는 `FuncAnimation`을 생성하지 않는다. 아래 문서의 프레임별 누적 표시 설명은 `--animate` 모드에 해당한다. `--headless`는 창 없이 최종 프레임만 렌더링하며, `--output-dir`의 `overview_final.png`도 전체 궤적을 포함한다.
+
 ## 실행
 
 레포 루트의 PowerShell에서 실행한다. NumPy와 Matplotlib만 필요하다.
 
 ```powershell
-.\.venv\Scripts\python.exe .\LIPM\demo_LIPM_3D_double_support.py
+.\.venv\Scripts\python.exe .\LIPM\demos\demo_LIPM_3D_double_support.py
 ```
 
 기본값은 SSP 0.34초, DSP 0.08초, dt 0.02초, CoM 높이 0.6 m, 목표 전진 속도 1.0 m/s, 발 높이 0.1 m, 실행 시간 10초다. 발너비 명령은 원본과 같이 0.4 → 0.8 → 0.4 → 0.4 m이며 10·20·30스텝에서 전환한다. SSP와 DSP 시간은 dt의 정수배여야 한다.
@@ -13,28 +32,28 @@
 기존 모델과 같은 즉시 지지발 전환:
 
 ```powershell
-.\.venv\Scripts\python.exe .\LIPM\demo_LIPM_3D_double_support.py --ds 0
+.\.venv\Scripts\python.exe .\LIPM\demos\demo_LIPM_3D_double_support.py --ds 0
 ```
 
 전체 스텝 시간을 0.34초로 유지하면서 DSP를 배분:
 
 ```powershell
-.\.venv\Scripts\python.exe .\LIPM\demo_LIPM_3D_double_support.py --ss 0.26 --ds 0.08
+.\.venv\Scripts\python.exe .\LIPM\demos\demo_LIPM_3D_double_support.py --ss 0.26 --ds 0.08
 ```
 
 화면 없이 결과 이미지와 수치 데이터 저장:
 
 ```powershell
-.\.venv\Scripts\python.exe .\LIPM\demo_LIPM_3D_double_support.py --headless --output-dir outputs/lipm_double_support
+.\.venv\Scripts\python.exe .\LIPM\demos\demo_LIPM_3D_double_support.py --headless --output-dir outputs/lipm_double_support
 ```
 
 `overview.png`는 첫 DSP 중간 시점까지 누적된 화면을, `overview_final.png`는 마지막 프레임까지 누적된 화면을 보여준다. `trajectory.npz`는 time, position, velocity, zmp, feet, phase, support, new_load, target 배열을 저장한다. 출력 이미지와 수치 데이터는 실행할 때 생성하는 결과물이다.
 
 ## 파일 구성
 
-- [모델](../LIPM/LIPM_3D_double_support.py): 기존 이름의 지지발 상대 CoM 상태, DSP 상태 전파와 착지점 계획.
-- [데모](../LIPM/demo_LIPM_3D_double_support.py): 초기화, 스윙발 궤적, SSP/DSP 전환 루프, 궤적 기록, Matplotlib 애니메이션과 결과 저장.
-- [검증](../LIPM/test_double_support.py): 수치 적분 대조, 기존 LIPM 일치, 접지와 주기 조건 검증.
+- [모델](../LIPM/models/LIPM_3D_double_support.py): 기존 이름의 지지발 상대 CoM 상태, DSP 상태 전파와 착지점 계획.
+- [데모](../LIPM/demos/demo_LIPM_3D_double_support.py): 초기화, 스윙발 궤적, SSP/DSP 전환 루프, 궤적 기록, Matplotlib 애니메이션과 결과 저장.
+- [검증](../LIPM/tests/test_double_support.py): 수치 적분 대조, 기존 LIPM 일치, 접지와 주기 조건 검증.
 
 기존 `LIPM_3D.py`, `demo_LIPM_3D_vt.py`는 이번 구현에서 변경하지 않았다. RL 환경과도 아직 연결하지 않았다.
 
@@ -131,7 +150,7 @@ p_new = p_old + (E*(xi_start-p_old)-b_next)/K
 2026-09-07, Python 3.12 가상환경에서 검증했다.
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s LIPM -p test_double_support.py
+.\.venv\Scripts\python.exe -m unittest discover -s LIPM/tests -p test_double_support.py
 ```
 
 초기 구현의 5개 테스트에 원본 초기값·명령 스케줄 검증을 추가해 현재 6개 테스트가 통과한다:
@@ -218,7 +237,7 @@ CLI와 화면 없는 검증을 유지하기 위해 실행부는 `main()`에 두�
 원본과 직접 비교하려면:
 
 ```powershell
-.\.venv\Scripts\python.exe .\LIPM\demo_LIPM_3D_double_support.py --ds 0
+.\.venv\Scripts\python.exe .\LIPM\demos\demo_LIPM_3D_double_support.py --ds 0
 ```
 
 위 조건에서 원본의 499개 CoM 위치·속도 샘플과 비교한 최대 절대 오차는 약 `1.2e-13`이었다. 양발 스윙 궤적이나 기록 시점의 위상 라벨까지 동일하다는 의미는 아니다. 원본 세 파일의 해시는 유지됐다.
@@ -226,5 +245,5 @@ CLI와 화면 없는 검증을 유지하기 위해 실행부는 `main()`에 두�
 고정 발너비와 주기 초기화가 필요한 별도 비교는 다음처럼 명시한다.
 
 ```powershell
-.\.venv\Scripts\python.exe .\LIPM\demo_LIPM_3D_double_support.py --periodic-start --width 0.3 --vx 0.5
+.\.venv\Scripts\python.exe .\LIPM\demos\demo_LIPM_3D_double_support.py --periodic-start --width 0.3 --vx 0.5
 ```

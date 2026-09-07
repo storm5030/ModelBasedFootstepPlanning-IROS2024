@@ -1,3 +1,12 @@
+"""Compatibility copy of demo_LIPM_3D_vt_analysis.py.
+Only Matplotlib artist API calls are updated; model and analysis are unchanged.
+"""
+# Allow both direct script execution and python -m from the repository root.
+if __package__ in (None, ''):
+    import sys
+    from pathlib import Path as _Path
+    sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -7,7 +16,7 @@ import matplotlib.patches as patches
 from matplotlib.patches import FancyArrowPatch
 
 import os
-from LIPM_3D import LIPM3D
+from LIPM.models.LIPM_3D import LIPM3D
 import matplotlib as mpl
 from matplotlib.transforms import Bbox
 
@@ -29,7 +38,7 @@ class Ball:
         if None in pos:
             return
         # draw ball
-        self.scatter.set_data_3d(pos)
+        self.scatter.set_data_3d([pos[0]], [pos[1]], [pos[2]])
 
 class Marker:
     def __init__(self, size=10, color='blue', marker='x', alpha=1.0):
@@ -42,7 +51,7 @@ class Marker:
         # if None in pos:
         #     return
         # # draw ball
-        # self.scatter.set_data_3d(pos)
+        # self.scatter.set_data_3d([pos[0]], [pos[1]], [pos[2]])
 
 class Line:
     def __init__(self, size=1, color='g', alpha=1.0, linestyle='-'):
@@ -53,7 +62,7 @@ class Line:
         self.line.set_xdata(pos[0,:])
         self.line.set_ydata(pos[1,:])
         self.line.set_3d_properties(np.asarray(pos[2,:]))
-        
+
 class Quadrant:
     def __init__(self, center, radius, start_u, end_u, start_v, end_v, color='gray'):
         self.color = color
@@ -148,7 +157,7 @@ class LIPM_3D_Animate():
         artists.append(self.q7.surface)
         artists.append(self.q8.surface)
 
-        # automatic set the x, y view limitation 
+        # automatic set the x, y view limitation
         if COM_pos[0] >= 3.0:
             ax.set_xlim(-1.0 + COM_pos[0] - 3.0, 4.0 + COM_pos[0] - 3.0)
         elif COM_pos[0] <= 0:
@@ -167,10 +176,10 @@ class LIPM_3D_Animate():
 
         artists.append(ax)
 
-        return artists 
+        return artists
 
 def ani_3D_init():
-    return [] 
+    return []
 
 def ani_3D_update(i):
     COM_pos = [COM_pos_x[i], COM_pos_y[i], LIPM_model.zc]
@@ -203,16 +212,16 @@ def ani_3D_update(i):
 
     artists = LIPM_3D_ani.update(COM_pos, COM_pos_trajectory, COM_pos_trajectory_proj, eICP_trajcectory, left_foot_pos, right_foot_pos, left_step_command, right_step_command)
 
-    return artists 
+    return artists
 
 def ani_2D_init():
     COM_traj_ani.set_data(COM_pos_x[0:0], COM_pos_y[0:0])
     eICP_ani.set_data(eICP_x[0:0], eICP_y[0:0])
-    COM_pos_ani.set_data(COM_pos_x[0], COM_pos_y[0])
-    left_foot_pos_ani.set_data(left_foot_pos_x[0], left_foot_pos_y[0])
-    right_foot_pos_ani.set_data(right_foot_pos_x[0], right_foot_pos_y[0])
-    left_step_command_ani.set_data(left_step_command_x[0], left_step_command_y[0])
-    right_step_command_ani.set_data(right_step_command_x[0], right_step_command_y[0])
+    COM_pos_ani.set_data([COM_pos_x[0]], [COM_pos_y[0]])
+    left_foot_pos_ani.set_data([left_foot_pos_x[0]], [left_foot_pos_y[0]])
+    right_foot_pos_ani.set_data([right_foot_pos_x[0]], [right_foot_pos_y[0]])
+    left_step_command_ani.set_data([left_step_command_x[0]], [left_step_command_y[0]])
+    right_step_command_ani.set_data([right_step_command_x[0]], [right_step_command_y[0]])
 
     # Add the circle and wedges to the Axes
     COM_circle_ani.center = (COM_pos_x[0], COM_pos_y[0])
@@ -225,15 +234,15 @@ def ani_2D_init():
 def ani_2D_update(i):
     COM_traj_ani.set_data(COM_pos_x[0:i], COM_pos_y[0:i])
     eICP_ani.set_data(eICP_x[0:i], eICP_y[0:i])
-    COM_pos_ani.set_data(COM_pos_x[i], COM_pos_y[i])
-    left_foot_pos_ani.set_data(left_foot_pos_x[i], left_foot_pos_y[i])
-    right_foot_pos_ani.set_data(right_foot_pos_x[i], right_foot_pos_y[i])
+    COM_pos_ani.set_data([COM_pos_x[i]], [COM_pos_y[i]])
+    left_foot_pos_ani.set_data([left_foot_pos_x[i]], [left_foot_pos_y[i]])
+    right_foot_pos_ani.set_data([right_foot_pos_x[i]], [right_foot_pos_y[i]])
     left_step_command_ani.set_data(left_step_command_x[0:i], left_step_command_y[0:i])
     right_step_command_ani.set_data(right_step_command_x[0:i], right_step_command_y[0:i])
 
     # ani_text_COM_pos.set_text(COM_pos_str % (COM_pos_x[i], COM_pos_y[i]))
 
-    # # automatic set the x, y view limitation 
+    # # automatic set the x, y view limitation
     # bx.set_xlim(-2.0 + COM_pos_x[i], 3.0 + COM_pos_x[i])
     # bx.set_ylim(-0.8 + COM_pos_y[i], 0.8 + COM_pos_y[i])
     bx.set_xlim(3.6, 5.0)
@@ -245,11 +254,11 @@ def ani_2D_update(i):
     COM_wedge_bottom_left_ani.set_center((COM_pos_x[i], COM_pos_y[i]))
     global vel_cmd_ani
     vel_cmd_ani.remove()  # Remove the old quiver
-    vel_cmd_ani = bx.quiver(COM_pos_x[i], COM_pos_y[i], 0.15, 0, scale=1, color='#7FFF00') 
+    vel_cmd_ani = bx.quiver(COM_pos_x[i], COM_pos_y[i], 0.15, 0, scale=1, color='#7FFF00')
 
     return [COM_pos_ani, eICP_ani, COM_traj_ani, left_foot_pos_ani, right_foot_pos_ani, left_step_command_ani, right_step_command_ani, ani_text_COM_pos, bx,
             COM_circle_ani, COM_wedge_top_right_ani, COM_wedge_bottom_left_ani, vel_cmd_ani]
-   
+
 
 def COM_vel_2D_init():
     COM_vel_x_ani.set_data(np.linspace(0, 1, 0), COM_vel_x[0:0])
@@ -301,7 +310,7 @@ right_step_command_y = list()
 right_step_command_z = list()
 step_length = list()
 dstep_length = list()
-step_width = list() 
+step_width = list()
 dstep_width = list()
 eICP_x = list()
 eICP_y = list()
@@ -322,11 +331,11 @@ LIPM_model = LIPM3D(dt=0.02, T=0.35, s_d=0.6, w_d=0.3, support_leg='left_leg')
 LIPM_model.initializeModel(COM_pos_0, left_foot_pos, right_foot_pos)
 
 LIPM_model.x_0 = LIPM_model.COM_pos[0] - LIPM_model.support_foot_pos[0] # origin is at the support foot
-LIPM_model.y_0 = LIPM_model.COM_pos[1] - LIPM_model.support_foot_pos[1] 
+LIPM_model.y_0 = LIPM_model.COM_pos[1] - LIPM_model.support_foot_pos[1]
 LIPM_model.vx_0 = COM_v0[0]
 LIPM_model.vy_0 = COM_v0[1]
 
-LIPM_model.x_t = LIPM_model.x_0 
+LIPM_model.x_t = LIPM_model.x_0
 LIPM_model.y_t = LIPM_model.y_0
 LIPM_model.vx_t = LIPM_model.vx_0
 LIPM_model.vy_t = LIPM_model.vy_0
@@ -360,7 +369,7 @@ theta = 0
 step_to_cmdv = [10, 20, 30]
 # COM_dvel_list = np.array([[1.0, 0.0],[0.0, 50.0],[2.0, 2.0],[-4.0, 0.]])
 COM_dvel_list = np.array([[1.0, 0.0],[1.0, 0.0],[1.0, 0.0],[1.0, 0.0]])
-                        
+
 COM_dvel = COM_dvel_list[0]
 
 for i in range(1, int(total_time/LIPM_model.dt)):
@@ -389,7 +398,7 @@ for i in range(1, int(total_time/LIPM_model.dt)):
     right_foot_pos_x.append(LIPM_model.right_foot_pos[0])
     right_foot_pos_y.append(LIPM_model.right_foot_pos[1])
     right_foot_pos_z.append(LIPM_model.right_foot_pos[2])
-    
+
     if LIPM_model.support_leg == 'right_leg':
         left_step_command_x.append(LIPM_model.u_x)
         left_step_command_y.append(LIPM_model.u_y)
@@ -409,7 +418,7 @@ for i in range(1, int(total_time/LIPM_model.dt)):
     rsupport_foot_pos_y = -np.sin(theta)*support_foot_pos[0] + np.cos(theta)*support_foot_pos[1]
     rprev_support_foot_pos_x = np.cos(theta)*prev_support_foot_pos[0] + np.sin(theta)*prev_support_foot_pos[1]
     rprev_support_foot_pos_y = -np.sin(theta)*prev_support_foot_pos[0] + np.cos(theta)*prev_support_foot_pos[1]
-    
+
     step_length.append(rsupport_foot_pos_x - rprev_support_foot_pos_x)
     dstep_length.append(LIPM_model.s_d)
     step_width.append(np.abs(rsupport_foot_pos_y - rprev_support_foot_pos_y))
@@ -421,7 +430,7 @@ for i in range(1, int(total_time/LIPM_model.dt)):
 
         prev_support_foot_pos = support_foot_pos
         # Switch the support leg / Update current body state (self.x_0, self.y_0, self.vx_0, self.vy_0)
-        LIPM_model.switchSupportLeg() 
+        LIPM_model.switchSupportLeg()
         step_num += 1
 
         support_foot_pos = np.array(LIPM_model.support_foot_pos)
@@ -569,9 +578,9 @@ data_len = len(COM_pos_x)
 # # view angles
 # ax.view_init(20, -130)
 # # Get rid of the panes
-# ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-# ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-# ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+# ax.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+# ax.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+# ax.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
 
 # # view angles
 # LIPM_3D_ani = LIPM_3D_Animate()
@@ -646,9 +655,9 @@ ax3d.set_box_aspect([1.4,0.6,0.66])
 # view angles
 ax3d.view_init(20, -130)
 # Get rid of the panes
-ax3d.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-ax3d.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
-ax3d.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+ax3d.xaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+ax3d.yaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+ax3d.zaxis.set_pane_color((1.0, 1.0, 1.0, 0.0))
 
 COM_pos = np.array([COM_pos_x[choice], COM_pos_y[choice], LIPM_model.zc])
 
@@ -759,9 +768,9 @@ wd_arrow = FancyArrowPatch((3.8, -0.5), (3.8, -0.87),
                         arrowstyle='<->',  # Two-headed arrow
                         mutation_scale=20, # Size of arrow head
                         color='black',     # Color of the arrow
-                        lw=1) 
+                        lw=1)
 ax2d.text(3.76, -0.63, r'$w_d$', ha='center', va='center')
-    
+
 sd_arrow = FancyArrowPatch((3.8, -0.5), (4.1, -0.5),
                         arrowstyle='<->',  # Two-headed arrow
                         mutation_scale=20, # Size of arrow head

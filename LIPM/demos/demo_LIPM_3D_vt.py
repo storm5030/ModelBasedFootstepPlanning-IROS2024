@@ -1,9 +1,16 @@
+# Allow both direct script execution and python -m from the repository root.
+if __package__ in (None, ''):
+    import sys
+    from pathlib import Path as _Path
+    sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import os
+import argparse
 
-from LIPM_3D import LIPM3D
+from LIPM.models.LIPM_3D import LIPM3D
 
 class Ball:
     def __init__(self, size=10, shape='o'):
@@ -66,7 +73,7 @@ class LIPM_3D_Animate():
         artists.append(self.left_foot.scatter)
         artists.append(self.right_foot.scatter)
 
-        # automatic set the x, y view limitation 
+        # automatic set the x, y view limitation
         if COM_pos[0] >= 3.0:
             ax.set_xlim(-1.0 + COM_pos[0] - 3.0, 4.0 + COM_pos[0] - 3.0)
         elif COM_pos[0] <= 0:
@@ -81,10 +88,10 @@ class LIPM_3D_Animate():
 
         artists.append(ax)
 
-        return artists 
+        return artists
 
 def ani_3D_init():
-    return [] 
+    return []
 
 def ani_3D_update(i):
     COM_pos = [COM_pos_x[i], COM_pos_y[i], LIPM_model.zc]
@@ -98,7 +105,7 @@ def ani_3D_update(i):
 
     artists = LIPM_3D_ani.update(COM_pos, COM_pos_trajectory, left_foot_pos, right_foot_pos)
 
-    return artists 
+    return artists
 
 def ani_2D_init():
     COM_traj_ani.set_data(COM_pos_x[0:0], COM_pos_y[0:0])
@@ -116,12 +123,12 @@ def ani_2D_update(i):
 
     ani_text_COM_pos.set_text(COM_pos_str % (COM_pos_x[i], COM_pos_y[i]))
 
-    # # automatic set the x, y view limitation 
+    # # automatic set the x, y view limitation
     bx.set_xlim(-2.0 + COM_pos_x[i], 3.0 + COM_pos_x[i])
     bx.set_ylim(-0.8 + COM_pos_y[i], 0.8 + COM_pos_y[i])
 
     return [COM_pos_ani, COM_traj_ani, left_foot_pos_ani, right_foot_pos_ani, ani_text_COM_pos, bx]
-   
+
 
 def COM_vel_2D_init():
     COM_vel_x_ani.set_data(np.linspace(0, 1, 0), COM_vel_x[0:0])
@@ -151,6 +158,11 @@ def step_params_2D_update(i):
 
 
 # %% ---------------------------------------------------------------- LIPM control
+parser = argparse.ArgumentParser(description='LIPM demo: final results by default')
+parser.add_argument('--animate', action='store_true', help='Replay the original animation')
+parser.add_argument('--periodic-start', action='store_true', help='Initialize CoM and feet on the commanded periodic gait')
+args = parser.parse_args()
+
 print('\n--------- Program start from here ...')
 
 COM_pos_x = list()
@@ -167,30 +179,73 @@ right_foot_pos_y = list()
 right_foot_pos_z = list()
 step_length = list()
 dstep_length = list()
-step_width = list() 
+step_width = list()
 dstep_width = list()
+
+# Initialize parameters
+total_time = 10 # seconds
+step_num = 0
+
+theta = 0
+
+step_to_cmdv = [10, 20, 30]
+COM_dvel_list = np.array([[0.3, 0.0],[0.3, 0.0],[0.3, 0.0],[0.3, 0.0]])
+# COM_dvel_list = np.array([[2.0, 0.0],[2.0, 0.0],[2.0, 0.0],[2.0, 0.0]])
+w_d_list = np.array([0.4, 0.6, 0.4, 0.4])
+# w_d_list = np.array([0.4, 0.4, 0.4, 0.4])
+
+COM_dvel = COM_dvel_list[0]
 
 # Initialize the 3D LIPM (with initial COM position, velocity and foot position)
 # COM_pos_0 = [-0.4, 0.2, 1.0]
 # COM_v0 = [1.0, -0.01]
 COM_pos_0 = [0., 0., .6]
-COM_v0 = [1.0, 0.]
+COM_v0 = [0.3, 0.]
 
-left_foot_pos = [-0.2, 0.3, 0]
-right_foot_pos = [-0.2, -0.3, 0]
+left_foot_pos = [0.0, 0.2, 0]
+right_foot_pos = [0.0, -0.2, 0]
 support_foot_pos = np.array(left_foot_pos)
 prev_support_foot_pos = np.array(left_foot_pos)
 
-LIPM_model = LIPM3D(dt=0.02, T=0.34, s_d=0.6, w_d=0.4, support_leg='left_leg')
+LIPM_model = LIPM3D(dt=0.02, T=0.6, w_d=0.4, support_leg='left_leg')
+# Desired distance between successive support feet: speed times one step duration.
+LIPM_model.s_d = np.linalg.norm(COM_dvel)*LIPM_model.T
 # LIPM_model = LIPM3D(dt=0.02, T=0.5, support_leg='right_leg')
 LIPM_model.initializeModel(COM_pos_0, left_foot_pos, right_foot_pos)
 
+if args.periodic_start:
+    # Same periodic initialization as the DSP demo with T_ds=0.
+    # Keep the original initialization above when the option is absent.
+    theta = np.arctan2(COM_dvel[1], COM_dvel[0])
+    forward = np.array([np.cos(theta), np.sin(theta)])
+    lateral = np.array([-np.sin(theta), np.cos(theta)])
+    LIPM_model.s_d = np.linalg.norm(COM_dvel)*LIPM_model.T
+    LIPM_model.w_d = w_d_list[0]
+    w = LIPM_model.w_0
+    E = np.exp(w*LIPM_model.T)
+    decay = 1/E
+    xi = (LIPM_model.s_d/(E-1)*forward
+          - LIPM_model.w_d/(E+1)*lateral)
+    eta = (-LIPM_model.s_d/(1-decay)*forward
+           - LIPM_model.w_d/(1+decay)*lateral)
+    left_foot_pos = np.r_[0.5*LIPM_model.w_d*lateral, 0.]
+    right_foot_pos = np.r_[-LIPM_model.s_d*forward-0.5*LIPM_model.w_d*lateral, 0.]
+    COM_pos_0 = np.r_[left_foot_pos[:2]+0.5*(xi+eta), LIPM_model.zc]
+    COM_v0 = 0.5*w*(xi-eta)
+    # Assign both feet explicitly; the legacy initializer copies the support foot to both.
+    LIPM_model.left_foot_pos = left_foot_pos.copy()
+    LIPM_model.right_foot_pos = right_foot_pos.copy()
+    LIPM_model.support_foot_pos = left_foot_pos.copy()
+    LIPM_model.COM_pos = COM_pos_0.copy()
+    support_foot_pos = left_foot_pos.copy()
+    prev_support_foot_pos = right_foot_pos.copy()
+
 LIPM_model.x_0 = LIPM_model.COM_pos[0] - LIPM_model.support_foot_pos[0] # origin is at the support foot
-LIPM_model.y_0 = LIPM_model.COM_pos[1] - LIPM_model.support_foot_pos[1] 
+LIPM_model.y_0 = LIPM_model.COM_pos[1] - LIPM_model.support_foot_pos[1]
 LIPM_model.vx_0 = COM_v0[0]
 LIPM_model.vy_0 = COM_v0[1]
 
-LIPM_model.x_t = LIPM_model.x_0 
+LIPM_model.x_t = LIPM_model.x_0
 LIPM_model.y_t = LIPM_model.y_0
 LIPM_model.vx_t = LIPM_model.vx_0
 LIPM_model.vy_t = LIPM_model.vy_0
@@ -200,7 +255,7 @@ swing_foot_pos = np.zeros((swing_data_len, 3))
 j = 0
 
 # Calculate the next step locations
-LIPM_model.calculateFootLocationForNextStepXcoMWorld()
+LIPM_model.calculateFootLocationForNextStepXcoMWorld(theta)
 # LIPM_model.calculateFootLocationForNextStepXcoMBase()
 
 # Calculate the foot positions for swing phase
@@ -214,20 +269,6 @@ else:
     swing_foot_pos[:,0] = np.linspace(LIPM_model.left_foot_pos[0], left_foot_target_pos[0], swing_data_len)
     swing_foot_pos[:,1] = np.linspace(LIPM_model.left_foot_pos[1], left_foot_target_pos[1], swing_data_len)
     swing_foot_pos[1:swing_data_len-1, 2] = 0.1
-
-# Initialize parameters
-total_time = 10 # seconds
-step_num = 0
-
-theta = 0
-
-step_to_cmdv = [10, 20, 30]
-COM_dvel_list = np.array([[1.0, 0.0],[1.0, .0],[1.0, 0.0],[1.0, .0]])
-# COM_dvel_list = np.array([[2.0, 0.0],[2.0, 0.0],[2.0, 0.0],[2.0, 0.0]])
-w_d_list = np.array([0.4, 0.8, 0.4, 0.4])
-# w_d_list = np.array([0.4, 0.4, 0.4, 0.4])
-                        
-COM_dvel = COM_dvel_list[0]
 
 for i in range(1, int(total_time/LIPM_model.dt)):
 
@@ -258,7 +299,7 @@ for i in range(1, int(total_time/LIPM_model.dt)):
     rsupport_foot_pos_y = -np.sin(theta)*support_foot_pos[0] + np.cos(theta)*support_foot_pos[1]
     rprev_support_foot_pos_x = np.cos(theta)*prev_support_foot_pos[0] + np.sin(theta)*prev_support_foot_pos[1]
     rprev_support_foot_pos_y = -np.sin(theta)*prev_support_foot_pos[0] + np.cos(theta)*prev_support_foot_pos[1]
-    
+
     step_length.append(rsupport_foot_pos_x - rprev_support_foot_pos_x)
     dstep_length.append(LIPM_model.s_d)
     step_width.append(np.abs(rsupport_foot_pos_y - rprev_support_foot_pos_y))
@@ -270,7 +311,7 @@ for i in range(1, int(total_time/LIPM_model.dt)):
 
         prev_support_foot_pos = support_foot_pos
         # Switch the support leg / Update current body state (self.x_0, self.y_0, self.vx_0, self.vy_0)
-        LIPM_model.switchSupportLeg() 
+        LIPM_model.switchSupportLeg()
         step_num += 1
 
         support_foot_pos = np.array(LIPM_model.support_foot_pos)
@@ -406,10 +447,31 @@ def _update_func(i):
     artist4 = step_params_2D_update(i)
     return artist1 + artist2 + artist3 + artist4
 
-anim = FuncAnimation(fig=fig, init_func=_init_func, func=_update_func, frames=range(1, data_len), interval=1.0/LIPM_model.dt, blit=False, repeat=False)
+def show_final_result():
+    # Retain the original callbacks; render the last state and complete histories once.
+    _update_func(data_len-1)
+    COM_vel_2D_update(data_len)
+    step_params_2D_update(data_len)
+    COM_traj_ani.set_data(COM_pos_x, COM_pos_y)
+    COM_pos_trajectory = np.vstack((COM_pos_x, COM_pos_y, np.zeros(data_len)))
+    LIPM_3D_ani.COM_trajectory.update(COM_pos_trajectory)
+    LIPM_3D_ani.COM_head.update(COM_pos_trajectory[:, -1])
+    all_x = np.concatenate((COM_pos_x, left_foot_pos_x, right_foot_pos_x))
+    all_y = np.concatenate((COM_pos_y, left_foot_pos_y, right_foot_pos_y))
+    for axis in (ax, bx):
+        axis.set_xlim(all_x.min()-0.2, all_x.max()+0.2)
+        axis.set_ylim(all_y.min()-0.2, all_y.max()+0.2)
 
-# * Save the animation
-print("--------- Play the animation")
+
+if args.animate:
+    # Original animation preserved; enable explicitly with --animate.
+    anim = FuncAnimation(fig=fig, init_func=_init_func, func=_update_func,
+                         frames=range(1, data_len), interval=1.0/LIPM_model.dt,
+                         blit=False, repeat=False)
+    print("--------- Play the animation")
+else:
+    show_final_result()
+    print("--------- Show final results")
 plt.show()
 
 # print("--------- Save the animation")
