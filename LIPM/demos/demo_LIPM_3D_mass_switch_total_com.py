@@ -45,6 +45,18 @@ class LIPM_3D_Animate:
         self.body = Ball(ax, size=12, shape='s', color='black', label='Body mass center')
         self.ZMP = Ball(ax, size=12, shape='*', color='darkorange', label='ZMP')
         self.support_line = Line(ax, size=2, color='darkorange')
+        self.virtual_leg, = ax.plot([], [], [], '--', color='teal', linewidth=3,
+                                    marker='o', markersize=6, markerfacecolor='none',
+                                    markevery=[0], label='Virtual pendulum (planning CoM - ZMP)')
+        self.left_leg.line.set_alpha(0.4)
+        self.right_leg.line.set_alpha(0.4)
+
+    def updateVirtualPendulum(self, planning_com, zmp, active_foot):
+        # The fixed-height planning point can differ from the displayed effective CoM.
+        points = np.array([planning_com, zmp])
+        self.virtual_leg.set_data_3d(points.T)
+        self.virtual_leg.set_color(('teal', 'goldenrod')[int(active_foot)])
+        return [self.virtual_leg]
 
     def update(self, COM_pos, COM_pos_trajectory, left_foot_pos, right_foot_pos,
                ZMP_pos, double_support, body_pos):
@@ -307,13 +319,16 @@ def main():
         COM_pos_trajectory = np.vstack((c[:i+1].T, np.zeros(i+1)))
         artists = LIPM_3D_ani.update(COM_pos, COM_pos_trajectory, feet[i, 0], feet[i, 1],
                                     np.r_[z[i], 0.], dsp[i], data['body_position'][i])
+        artists += LIPM_3D_ani.updateVirtualPendulum(data['planning_com'][i],
+                                                     np.r_[z[i], 0.], data['active_foot'][i])
         for k, marker in enumerate(effective_3d):
             marker.update(data['effective_com'][i,k])
             marker.scatter.set_markersize(10 if k == data['active_foot'][i] else 5)
             artists.append(marker.scatter)
         label = ('DSP: new-foot load ' + f'{100*data["new_load"][i]:.0f}%'
                  if dsp[i] else f'SSP: {"left" if data["support"][i] == 0 else "right"} support')
-        ax.set_title(f't = {t[i]:.2f}s | {label}', fontsize=9)
+        active = 'left' if data['active_foot'][i] == 0 else 'right'
+        ax.set_title(f't = {t[i]:.2f}s | {label}\nVirtual pendulum: body + {active} foot', fontsize=9)
         return artists
 
     def ani_2D_init():
