@@ -11,26 +11,12 @@ if __package__ in (None, ''):
 import argparse
 from pathlib import Path
 import numpy as np
+from LIPM.demo_utils.playback import RealtimePlayback
+from LIPM.demo_utils.plot_artists import Ball, Line, PhaseShading
 from LIPM.models.LIPM_3D_double_support import LIPM3DDoubleSupport
 
 
 # ---------------------------------------------------------------- Animation helpers
-class Ball:
-    def __init__(self, ax, size=10, shape='o', color=None, label=None):
-        self.scatter, = ax.plot([], [], [], shape, markersize=size, color=color, label=label)
-
-    def update(self, pos):
-        self.scatter.set_data_3d([pos[0]], [pos[1]], [pos[2]])
-
-
-class Line:
-    def __init__(self, ax, size=1, color='g'):
-        self.line, = ax.plot([], [], [], linewidth=size, color=color)
-
-    def update(self, pos):
-        self.line.set_data_3d(pos)
-
-
 class LIPM_3D_Animate:
     def __init__(self, ax):
         self.ax = ax
@@ -215,7 +201,6 @@ def main():
     if args.headless:
         matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    from matplotlib.animation import FuncAnimation
 
     step_to_cmdv = [10, 20, 30]
     COM_dvel_list = np.array([[args.vx, args.vy]]*4)
@@ -289,16 +274,7 @@ def main():
                  (step_width_ani, step_width), (dstep_width_ani, dstep_width)]
 
     # Reveal DSP shading only up to the displayed time, including on replay.
-    from matplotlib.patches import Rectangle
-    edges = np.diff(np.r_[False, dsp, False].astype(int))
-    spans = []
-    for start, stop in zip(np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)):
-        end_time = t[stop] if stop < len(t) else t[-1]
-        for axis in (cx, dx):
-            patch = Rectangle((t[start], 0), 0, 1, transform=axis.get_xaxis_transform(),
-                              facecolor='darkorange', alpha=0.12, edgecolor='none', zorder=0)
-            axis.add_patch(patch)
-            spans.append((patch, t[start], end_time))
+    phase_shading = PhaseShading((cx, dx), t, dsp)
     for axis in (bx, cx, dx):
         axis.grid(ls='--', alpha=0.5)
     for axis in (cx, dx):
@@ -354,14 +330,12 @@ def main():
         return [step_length_ani, step_width_ani, dstep_length_ani, dstep_width_ani]
 
     def _init_func():
-        for patch, _, _ in spans:
-            patch.set_width(0)
+        phase_shading.reset()
         return ani_3D_init()+ani_2D_init()+COM_vel_2D_init()+step_params_2D_init()
 
     def _update_func(i):
         artists = ani_3D_update(i)+ani_2D_update(i)+COM_vel_2D_update(i)+step_params_2D_update(i)
-        for patch, start, stop in spans:
-            patch.set_width(max(0., min(t[i], stop)-start))
+        phase_shading.update(t[i])
         return artists
 
     def show_final_result():
@@ -391,11 +365,7 @@ def main():
         assert len(COM_traj_ani.get_xdata()) == len(t)
         plt.close(fig)
     elif args.animate:
-        # Original animation path retained for use on a faster machine.
-        stride = max(1, round(0.02 / args.dt))
-        _update_func(0)
-        animation = FuncAnimation(fig, _update_func, init_func=_init_func, frames=range(0, len(t), stride),
-                                  interval=1000*args.dt*stride, blit=False, repeat=False, cache_frame_data=False)
+        animation = RealtimePlayback(fig, t, _update_func, _init_func)
         plt.show()
     else:
         show_final_result()

@@ -11,26 +11,13 @@ if __package__ in (None, ''):
 import argparse
 from pathlib import Path
 import numpy as np
+from LIPM.demo_utils.mass_switch_simulation import MassSwitchSimulation
+from LIPM.demo_utils.playback import RealtimePlayback
+from LIPM.demo_utils.plot_artists import Ball, Line, PhaseShading
 from LIPM.models.LIPM_3D_mass_switch_total_com import LIPM3DMassSwitchTotalCoM, DEFAULT_BODY_MASS, DEFAULT_FOOT_MASS
 
 
 # ---------------------------------------------------------------- Animation helpers
-class Ball:
-    def __init__(self, ax, size=10, shape='o', color=None, label=None):
-        self.scatter, = ax.plot([], [], [], shape, markersize=size, color=color, label=label)
-
-    def update(self, pos):
-        self.scatter.set_data_3d([pos[0]], [pos[1]], [pos[2]])
-
-
-class Line:
-    def __init__(self, ax, size=1, color='g'):
-        self.line, = ax.plot([], [], [], linewidth=size, color=color)
-
-    def update(self, pos):
-        self.line.set_data_3d(pos)
-
-
 class LIPM_3D_Animate:
     def __init__(self, ax):
         self.ax = ax
@@ -100,98 +87,13 @@ def create_model(dt=0.02, t_ss=0.48, t_ds=0.12, height=0.6, velocity=(0.3, 0.),
 
 
 def calculateSwingFootTrajectory(LIPM_model, clearance):
-    """As in the original demo, foot trajectories belong to the demo, not the model."""
-    if clearance < 0:
-        raise ValueError('clearance must be nonnegative')
-    swing_data_len = round(LIPM_model.T/LIPM_model.dt)
-    start = (LIPM_model.right_foot_pos if LIPM_model.support_leg == 'left_leg'
-             else LIPM_model.left_foot_pos)
-    target = np.array([LIPM_model.u_x, LIPM_model.u_y, 0.])
-    phase = np.arange(1, swing_data_len+1)/swing_data_len
-    blend = 10*phase**3-15*phase**4+6*phase**5
-    swing_foot_pos = start + blend[:, None]*(target-start)
-    swing_foot_pos[:, 2] = clearance*64*phase**3*(1-phase)**3
-    swing_foot_pos[-1] = target
-    LIPM_model.swing_velocity = np.zeros_like(swing_foot_pos)
-    LIPM_model.swing_velocity[:, :2] = ((30*phase**2-60*phase**3+30*phase**4)/LIPM_model.T)[:, None]*(target-start)[:2]
-    LIPM_model.swing_velocity[:, 2] = clearance*192*phase**2*(1-phase)**2*(1-2*phase)/LIPM_model.T
-    LIPM_model.swing_velocity[-1] = 0.
-    return swing_foot_pos
+    return MassSwitchSimulation(LIPM_model).swing_trajectory(clearance)
 
 
 def simulate(LIPM_model, total_time, theta=0., clearance=0.1,
              step_to_cmdv=None, COM_dvel_list=None, w_d_list=None):
-    # Calculate the next step locations and the foot positions for swing phase.
-    LIPM_model.calculateFootLocationForNextStepXcoMWorld(theta)
-    swing_foot_pos = calculateSwingFootTrajectory(LIPM_model, clearance)
-    swing_data_len = len(swing_foot_pos)
-    double_support_data_len = round(LIPM_model.T_ds/LIPM_model.dt)
-    # With no schedule, retain a fixed command (used by numerical tests).
-    if step_to_cmdv is None:
-        step_to_cmdv = []
-    if COM_dvel_list is None:
-        speed = LIPM_model.s_d/LIPM_model.T_d
-        COM_dvel_list = np.array([[speed*np.cos(theta), speed*np.sin(theta)]])
-    if w_d_list is None:
-        w_d_list = np.full(len(COM_dvel_list), LIPM_model.w_d)
-    if len(COM_dvel_list) != len(step_to_cmdv)+1 or len(w_d_list) != len(COM_dvel_list):
-        raise ValueError('A command schedule needs one more value than transition steps')
-    COM_dvel = np.asarray(COM_dvel_list[0])
-    support_foot_pos = LIPM_model.support_foot_pos.copy()
-    prev_support_foot_pos = support_foot_pos.copy()
-
-    def record_data():
-        record = LIPM_model.snapshot()
-        delta = support_foot_pos[:2]-prev_support_foot_pos[:2]
-        record.update(command=COM_dvel.copy(), dstep_length=LIPM_model.s_d,
-                      dstep_width=LIPM_model.w_d, step_num=LIPM_model.steps,
-                      step_length=np.cos(theta)*delta[0]+np.sin(theta)*delta[1],
-                      step_width=abs(-np.sin(theta)*delta[0]+np.cos(theta)*delta[1]))
-        return record
-
-    records = [record_data()]
-
-    for i in range(1, round(total_time/LIPM_model.dt)+1):
-        # Update body (CoM) state: x_t, vx_t, y_t, vy_t.
-        LIPM_model.step()
-        switch_support = False
-        if LIPM_model.phase == 'SSP':
-            j = LIPM_model.phase_count-1
-            if LIPM_model.support_leg == 'left_leg':
-                LIPM_model.right_foot_pos = swing_foot_pos[j].copy()
-            else:
-                LIPM_model.left_foot_pos = swing_foot_pos[j].copy()
-            swing_index = 1 if LIPM_model.support_leg == 'left_leg' else 0
-            LIPM_model.foot_velocity[swing_index] = LIPM_model.swing_velocity[j]
-            LIPM_model.updateBody()
-            if LIPM_model.phase_count == swing_data_len:
-                if double_support_data_len:
-                    LIPM_model.beginDoubleSupport()
-                else:
-                    switch_support = True
-        else:
-            LIPM_model.updateBody()
-            if LIPM_model.phase_count == double_support_data_len:
-                switch_support = True
-
-        # Switch the support leg only after DSP, then plan the next swing.
-        if switch_support:
-            prev_support_foot_pos = support_foot_pos.copy()
-            LIPM_model.switchSupportLeg()
-            support_foot_pos = LIPM_model.support_foot_pos.copy()
-            step_num = LIPM_model.steps
-            command_index = sum(step_num >= threshold for threshold in step_to_cmdv)
-            COM_dvel = np.asarray(COM_dvel_list[command_index])
-            theta = np.arctan2(COM_dvel[1], COM_dvel[0])
-            # Include DSP in the duration so the average speed reference remains meaningful.
-            LIPM_model.s_d = np.linalg.norm(COM_dvel)*LIPM_model.T_d
-            LIPM_model.w_d = w_d_list[command_index]
-            LIPM_model.calculateFootLocationForNextStepXcoMWorld(theta)
-            swing_foot_pos = calculateSwingFootTrajectory(LIPM_model, clearance)
-
-        # Record data after the phase transition, preserving previous demo semantics.
-        records.append(record_data())
-    return {key: np.array([record[key] for record in records]) for key in records[0]}
+    return MassSwitchSimulation(LIPM_model).run(
+        total_time, theta, clearance, step_to_cmdv, COM_dvel_list, w_d_list)
 
 
 def main():
@@ -218,7 +120,6 @@ def main():
     if args.headless:
         matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    from matplotlib.animation import FuncAnimation
 
     step_to_cmdv = [10, 20, 30]
     COM_dvel_list = np.array([[args.vx, args.vy]]*4)
@@ -299,16 +200,7 @@ def main():
                  (step_width_ani, step_width), (dstep_width_ani, dstep_width)]
 
     # Reveal DSP shading only up to the displayed time, including on replay.
-    from matplotlib.patches import Rectangle
-    edges = np.diff(np.r_[False, dsp, False].astype(int))
-    spans = []
-    for start, stop in zip(np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)):
-        end_time = t[stop] if stop < len(t) else t[-1]
-        for axis in (cx, dx):
-            patch = Rectangle((t[start], 0), 0, 1, transform=axis.get_xaxis_transform(),
-                              facecolor='darkorange', alpha=0.12, edgecolor='none', zorder=0)
-            axis.add_patch(patch)
-            spans.append((patch, t[start], end_time))
+    phase_shading = PhaseShading((cx, dx), t, dsp)
     for axis in (bx, cx, dx):
         axis.grid(ls='--', alpha=0.5)
     for axis in (cx, dx):
@@ -376,14 +268,12 @@ def main():
         return [step_length_ani, step_width_ani, dstep_length_ani, dstep_width_ani]
 
     def _init_func():
-        for patch, _, _ in spans:
-            patch.set_width(0)
+        phase_shading.reset()
         return ani_3D_init()+ani_2D_init()+COM_vel_2D_init()+step_params_2D_init()
 
     def _update_func(i):
         artists = ani_3D_update(i)+ani_2D_update(i)+COM_vel_2D_update(i)+step_params_2D_update(i)
-        for patch, start, stop in spans:
-            patch.set_width(max(0., min(t[i], stop)-start))
+        phase_shading.update(t[i])
         return artists
 
     def show_final_result():
@@ -413,11 +303,7 @@ def main():
         assert len(COM_traj_ani.get_xdata()) == len(t)
         plt.close(fig)
     elif args.animate:
-        # Original animation path retained for use on a faster machine.
-        stride = max(1, round(0.02 / args.dt))
-        _update_func(0)
-        animation = FuncAnimation(fig, _update_func, init_func=_init_func, frames=range(0, len(t), stride),
-                                  interval=1000*args.dt*stride, blit=False, repeat=False, cache_frame_data=False)
+        animation = RealtimePlayback(fig, t, _update_func, _init_func)
         plt.show()
     else:
         show_final_result()
