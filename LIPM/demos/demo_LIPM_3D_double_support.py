@@ -1,6 +1,6 @@
 """Static results: python LIPM/demos/demo_LIPM_3D_double_support.py
 Animation (optional): add --animate
-Headless: add --headless --output-dir outputs/lipm_double_support
+Headless and save: add --headless --output-dir
 """
 # Allow both direct script execution and python -m from the repository root.
 if __package__ in (None, ''):
@@ -10,6 +10,7 @@ if __package__ in (None, ''):
 
 import argparse
 from pathlib import Path
+from LIPM.demo_utils.output_paths import default_output_dir
 import numpy as np
 from LIPM.demo_utils.playback import RealtimePlayback
 from LIPM.demo_utils.plot_artists import Ball, Line, PhaseShading
@@ -193,7 +194,9 @@ def main():
     parser.add_argument('--periodic-start', action='store_true', help='Optional periodic initial state instead of original initial conditions')
     parser.add_argument('--animate', action='store_true', help='Replay the animation instead of showing only final results')
     parser.add_argument('--headless', action='store_true')
-    parser.add_argument('--output-dir', type=Path)
+    parser.add_argument('--output-dir', type=Path, nargs='?',
+                        const=default_output_dir(__file__),
+                        help='Save results; defaults to the demo folder under repository outputs')
     args = parser.parse_args()
     if args.duration <= 0:
         parser.error('duration must be positive')

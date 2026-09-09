@@ -7,6 +7,8 @@ if __package__ in (None, ''):
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from LIPM.demo_utils.animation_export import save_mp4_or_gif
+from LIPM.demo_utils.output_paths import default_output_dir
 from matplotlib import gridspec
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.patches as patches
@@ -625,11 +627,13 @@ right_step_command_ani, = bx.plot([], [], 'x', markersize=10, color='r', linesty
 
 ani_2D = FuncAnimation(fig=fig, init_func=ani_2D_init, func=ani_2D_update, frames=range(1, data_len), interval=1.0/LIPM_model.dt, blit=False, repeat=True)
 
+output_dir = default_output_dir(__file__)
+output_dir.mkdir(parents=True, exist_ok=True)
 print("--------- Save the 2D animation")
-filepath = os.path.join(os.getcwd(), "LIPM_vt_2D.mp4")
+filepath = output_dir / "LIPM_vt_2D.mp4"
 # COM_vel_2D.save(filepath, fps=self.fps, extra_args=['-vcodec', 'libx264'])
 # step_params_2D.save(filepath, fps=self.fps, extra_args=['-vcodec', 'libx264'])
-ani_2D.save(filepath, fps=1.0/LIPM_model.dt, extra_args=['-vcodec', 'libx264'])
+filepath = save_mp4_or_gif(ani_2D, filepath, fps=1.0/LIPM_model.dt)
 
 
 # * ------------------------------------------------- Save static plot
@@ -733,7 +737,7 @@ ax3d.scatter(right_step_command_x[start:end], right_step_command_y[start:end], r
 ax3d.legend(ncol=3, loc='upper center', bbox_to_anchor=(0.5, 0.95))
 ax3d.set_clip_on(True)
 
-fig3d.savefig(os.path.join(os.getcwd(), "LIP_3D.pdf"), format='pdf', bbox_inches='tight')
+fig3d.savefig(output_dir / "LIP_3D.pdf", format='pdf', bbox_inches='tight')
 
 # * 2D plot
 fig = plt.figure(figsize=(10, 10))
@@ -797,7 +801,7 @@ ax2d.add_patch(sd_arrow)
 ax2d.add_patch(bx_arrow)
 ax2d.add_patch(by_arrow)
 
-fig.savefig(os.path.join(os.getcwd(), "LIP_2D.pdf"), format='pdf', bbox_inches='tight')
+fig.savefig(output_dir / "LIP_2D.pdf", format='pdf', bbox_inches='tight')
 
 plt.show()
 print('---------  Program terminated')

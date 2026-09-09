@@ -7,6 +7,7 @@ if __package__ in (None, ''):
 
 import argparse
 from pathlib import Path
+from LIPM.demo_utils.output_paths import default_output_dir
 import numpy as np
 from LIPM.demos.demo_LIPM_3D_double_support import create_model, simulate
 from LIPM.models.LIPM_3D_double_support import LIPM3DDoubleSupport
@@ -60,7 +61,7 @@ def main():
     parser.add_argument('--start',type=float,default=None,help='Plot window start [s]; simulate from t=0')
     parser.add_argument('--end',type=float,help='Plot window end [s]')
     parser.add_argument('--headless',action='store_true')
-    parser.add_argument('--output-dir',type=Path,default=Path('outputs/lipm_double_support_analysis'))
+    parser.add_argument('--output-dir',type=Path,default=default_output_dir(__file__))
     parser.add_argument('--snapshot',type=float,help='Time of the robot marker within the window [s]')
     parser.add_argument('--icp-kind',choices=['instantaneous','ssp-end','step-end'],default='instantaneous')
     parser.add_argument('--diagnostics',action='store_true',help='Also display the earlier multi-panel diagnostics')
