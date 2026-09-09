@@ -7,11 +7,25 @@ if __package__ in (None, ''):
 import unittest
 import numpy as np
 from LIPM.demos.demo_LIPM_3D_mass_switch_total_com import create_model,simulate
+from LIPM.demo_utils.playback import realtime_frames
 from LIPM.demos.demo_LIPM_3D_mass_switch import create_model as body_model,simulate as body_simulate
 from LIPM.demos.demo_LIPM_3D_double_support import create_model as baseline,simulate as baseline_simulate
 
 
 class TotalCoMTests(unittest.TestCase):
+    def test_realtime_playback_skips_delayed_frames_and_includes_end(self):
+        clock_values = iter([100., 100.01, 100.26, 101.5])
+        times = np.array([0., 0.1, 0.2, 0.3, 1.])
+        frames = list(realtime_frames(times, clock=lambda: next(clock_values)))
+        self.assertEqual(frames, [0, 0, 2, 4])
+
+    def test_realtime_playback_handles_time_offset_and_single_frame(self):
+        clock_values = iter([20., 20.25, 21.])
+        frames = list(realtime_frames(np.array([5., 5.2, 5.5]),
+                                      clock=lambda: next(clock_values)))
+        self.assertEqual(frames, [0, 1, 2])
+        self.assertEqual(list(realtime_frames(np.array([0.]), clock=lambda: 0.)), [0])
+
     def test_initial_height_and_velocity(self):
         m=create_model()
         d=m.snapshot()

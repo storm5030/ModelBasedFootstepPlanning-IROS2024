@@ -5,43 +5,26 @@ if __package__ in (None, ''):
     sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
 
 import numpy as np
+from LIPM.demo_utils.playback import RealtimePlayback
+from LIPM.demo_utils.plot_artists import Ball, Line
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 import os
 import argparse
 
 from LIPM.models.LIPM_3D import LIPM3D
 
-class Ball:
-    def __init__(self, size=10, shape='o'):
-        self.scatter, = ax.plot([], [], [], shape, markersize=size, animated=False)
-
-    def update(self, pos):
-        # draw ball
-        self.scatter.set_data_3d([pos[0]], [pos[1]], [pos[2]])
-
-class Line:
-    def __init__(self, size=1, color='g'):
-        self.line, = ax.plot([], [], [], linewidth=size, color=color, animated=False)
-
-    def update(self, pos):
-        # draw line
-        self.line.set_xdata(pos[0,:])
-        self.line.set_ydata(pos[1,:])
-        self.line.set_3d_properties(np.asarray(pos[2,:]))
-
 class LIPM_3D_Animate():
     def __init__(self):
-        self.origin = Ball(size=2, shape='ko')
-        self.COM_trajectory = Line(size=1, color='g')
-        self.COM_head = Ball(size=2, shape='ro')
+        self.origin = Ball(ax, size=2, shape='o', color='k')
+        self.COM_trajectory = Line(ax, size=1, color='g')
+        self.COM_head = Ball(ax, size=2, shape='o', color='r')
 
-        self.left_foot = Ball(size=5, shape='bo')
-        self.right_foot = Ball(size=5, shape='mo')
+        self.left_foot = Ball(ax, size=5, shape='o', color='b')
+        self.right_foot = Ball(ax, size=5, shape='o', color='m')
 
-        self.left_leg = Line(size=3, color='b')
-        self.right_leg = Line(size=3, color='m')
-        self.COM = Ball(size=16, shape='ro')
+        self.left_leg = Line(ax, size=3, color='b')
+        self.right_leg = Line(ax, size=3, color='m')
+        self.COM = Ball(ax, size=16, shape='o', color='r')
 
 
     def update(self, COM_pos, COM_pos_trajectory, left_foot_pos, right_foot_pos):
@@ -95,10 +78,10 @@ def ani_3D_init():
 
 def ani_3D_update(i):
     COM_pos = [COM_pos_x[i], COM_pos_y[i], LIPM_model.zc]
-    COM_pos_trajectory = np.zeros((3, i))
-    COM_pos_trajectory[0,:] = COM_pos_x[0:i]
-    COM_pos_trajectory[1,:] = COM_pos_y[0:i]
-    COM_pos_trajectory[2,:] = np.zeros((1,i))
+    COM_pos_trajectory = np.zeros((3, i+1))
+    COM_pos_trajectory[0,:] = COM_pos_x[0:i+1]
+    COM_pos_trajectory[1,:] = COM_pos_y[0:i+1]
+    COM_pos_trajectory[2,:] = np.zeros((1,i+1))
 
     left_foot_pos = [left_foot_pos_x[i], left_foot_pos_y[i], left_foot_pos_z[i]]
     right_foot_pos = [right_foot_pos_x[i], right_foot_pos_y[i], right_foot_pos_z[i]]
@@ -116,7 +99,7 @@ def ani_2D_init():
     return [COM_pos_ani, COM_traj_ani, left_foot_pos_ani, right_foot_pos_ani]
 
 def ani_2D_update(i):
-    COM_traj_ani.set_data(COM_pos_x[0:i], COM_pos_y[0:i])
+    COM_traj_ani.set_data(COM_pos_x[0:i+1], COM_pos_y[0:i+1])
     COM_pos_ani.set_data([COM_pos_x[i]], [COM_pos_y[i]])
     left_foot_pos_ani.set_data([left_foot_pos_x[i]], [left_foot_pos_y[i]])
     right_foot_pos_ani.set_data([right_foot_pos_x[i]], [right_foot_pos_y[i]])
@@ -469,10 +452,8 @@ def show_final_result():
 
 
 if args.animate:
-    # Original animation preserved; enable explicitly with --animate.
-    anim = FuncAnimation(fig=fig, init_func=_init_func, func=_update_func,
-                         frames=range(1, data_len), interval=1.0/LIPM_model.dt,
-                         blit=False, repeat=False)
+    playback_times = np.arange(data_len) * LIPM_model.dt
+    anim = RealtimePlayback(fig, playback_times, _update_func, _init_func)
     print("--------- Play the animation")
 else:
     show_final_result()
